@@ -4,6 +4,7 @@ from enum import Enum, unique
 from weakref import WeakKeyDictionary
 import RPi.GPIO as GPIO
 import asyncio
+from credentials import credentials
 
 @unique
 class MoveDirectionStateVal(Enum):
@@ -39,7 +40,7 @@ class MoveState:
     def __init__(self):
         self.motor_forward_timeouts = []
         self.motor_backward_timeouts = []
-        self.motor_frequency = 0.5
+        self.motor_frequency = 1/int(credentials["motor_frequency"])
         self.motor_is_queued = False
         self.motor_is_busy = False
         self.IN1 = 20
