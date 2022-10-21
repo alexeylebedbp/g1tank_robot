@@ -32,14 +32,22 @@ class MoveCommand(Enum):
     LEFT = 2
     RIGHT = 3
 
+@unique
+class MotorCommand(Enum):
+    FORWARD = 0
+    BACKWARD = 1
+    LEFT = 2
+    RIGHT = 3
+    SPINLEFT = 4
+    SPINRIGHT = 5
+
+
 class MoveState:
 
     linear = MoveDirectionState()
     rotate = MoveDirectionState()
 
     def __init__(self):
-        self.motor_forward_timeouts = []
-        self.motor_backward_timeouts = []
         self.motor_frequency = 1/int(credentials["motor_frequency"])
         self.motor_is_queued = False
         self.motor_is_busy = False
@@ -54,6 +62,24 @@ class MoveState:
         self.linear = MoveDirectionStateVal.STAY
         self.rotate = MoveDirectionStateVal.STAY
         GPIO.setwarnings(False)
+
+        self. motor_gpio_config = {
+            MotorCommand.FORWARD:   [GPIO.HIGH, GPIO.LOW, GPIO.HIGH, GPIO.LOW],
+            MotorCommand.BACKWARD:  [GPIO.LOW, GPIO.HIGH, GPIO.LOW, GPIO.HIGH],
+            MotorCommand.RIGHT:     [GPIO.HIGH, GPIO.LOW, GPIO.LOW, GPIO.LOW],
+            MotorCommand.LEFT:      [GPIO.LOW, GPIO.LOW, GPIO.HIGH, GPIO.LOW],
+            MotorCommand.SPINRIGHT: [GPIO.HIGH, GPIO.LOW, GPIO.LOW, GPIO.HIGH],
+            MotorCommand.SPINLEFT:  [GPIO.LOW, GPIO.HIGH, GPIO.HIGH, GPIO.LOW],
+        }
+
+        self.motor_timeouts = {
+            MotorCommand.FORWARD:   [],
+            MotorCommand.BACKWARD:  [],
+            MotorCommand.LEFT:      [],
+            MotorCommand.RIGHT:     [],
+            MotorCommand.SPINLEFT:  [],
+            MotorCommand.SPINRIGHT: [],
+        }
     
     def state_to_default(self):
         self.linear = MoveDirectionStateVal.STAY
@@ -70,19 +96,19 @@ class MoveState:
         self.pwm_ENA = GPIO.PWM(self.ENA, 2000)
         self.pwm_ENB = GPIO.PWM(self.ENB, 2000)
 
-    async def motor_forward(self):
-        print("Motor forward!")
+    async def motor_move(self, motor_command: MotorCommand):
+        print("Motor move!")
         self.motor_is_busy = True
-        self.motor_forward_timeouts.append(1)
+        self.motor_timeouts[motor_command].append(1)
         self.motor_init()
-        GPIO.output(self.IN1, GPIO.HIGH)
-        GPIO.output(self.IN2, GPIO.LOW)
-        GPIO.output(self.IN3, GPIO.HIGH)
-        GPIO.output(self.IN4, GPIO.LOW)
+        GPIO.output(self.IN1, self.motor_gpio_config[motor_command][0])
+        GPIO.output(self.IN2, self.motor_gpio_config[motor_command][1])
+        GPIO.output(self.IN3, self.motor_gpio_config[motor_command][2])
+        GPIO.output(self.IN4, self.motor_gpio_config[motor_command][3])
         self.pwm_ENA.start(50)
         self.pwm_ENB.start(50)
-        while len(self.motor_forward_timeouts) != 0:
-            self.motor_forward_timeouts.pop()
+        while len(self.motor_timeouts[motor_command]) != 0:
+            self.motor_timeouts[motor_command].pop()
             await asyncio.sleep(self.motor_frequency)
         self.pwm_ENA.stop()
         self.pwm_ENB.stop()
@@ -91,30 +117,7 @@ class MoveState:
         if self.motor_is_queued:
             self.motor_is_queued = False
             asyncio.ensure_future(self._on_state_change())
-        self.state_to_default()
-
-    async def motor_backward(self):
-        print("Motor backward!")
-        self.motor_is_busy = True
-        self.motor_backward_timeouts.append(1)
-        self.motor_init()
-        GPIO.output(self.IN1, GPIO.LOW)
-        GPIO.output(self.IN2, GPIO.HIGH)
-        GPIO.output(self.IN3, GPIO.LOW)
-        GPIO.output(self.IN4, GPIO.HIGH)
-        self.pwm_ENA.start(50)
-        self.pwm_ENB.start(50)
-        while len(self.motor_backward_timeouts) != 0:
-            self.motor_backward_timeouts.pop()
-            await asyncio.sleep(self.motor_frequency)
-        self.pwm_ENA.stop()
-        self.pwm_ENB.stop()
-        GPIO.cleanup()
-        self.motor_is_busy = False
-        if self.motor_is_queued:
-            self.motor_is_queued = False
-            asyncio.ensure_future(self._on_state_change())
-        self.state_to_default()
+        self.state_to_default()       
 
     def parse_command(self, cmd: str):
         if cmd == "forward":
@@ -143,56 +146,93 @@ class MoveState:
 
     async def _on_state_change(self):
         if self.linear == MoveDirectionStateVal.FORWARD and self.rotate == MoveDirectionStateVal.STAY:
-            asyncio.ensure_future(self.motor_forward())
+            asyncio.ensure_future(self.motor_move(MotorCommand.FORWARD))
         elif self.linear == MoveDirectionStateVal.BACKWARD and self.rotate == MoveDirectionStateVal.STAY:
-            asyncio.ensure_future(self.motor_backward())
+            asyncio.ensure_future(self.motor_move(MotorCommand.BACKWARD))
+        elif self.linear == MoveDirectionStateVal.FORWARD and self.rotate == MoveDirectionStateVal.FORWARD:
+            asyncio.ensure_future(self.motor_move(MotorCommand.RIGHT))
+        elif self.linear == MoveDirectionStateVal.FORWARD and self.rotate == MoveDirectionStateVal.BACKWARD:
+            asyncio.ensure_future(self.motor_move(MotorCommand.LEFT))
+        elif self.linear == MoveDirectionStateVal.STAY and self.rotate == MoveDirectionStateVal.FORWARD:
+            asyncio.ensure_future(self.motor_move(MotorCommand.SPINRIGHT))
+        elif self.linear == MoveDirectionStateVal.STAY and self.rotate == MoveDirectionStateVal.BACKWARD:
+            asyncio.ensure_future(self.motor_move(MotorCommand.SPINLEFT))
+
+    async def _handle_state_change(self):
+        if not self.motor_is_busy:
+            asyncio.ensure_future(self._on_state_change())
+        else:
+            self.motor_is_queued = True
 
     async def _on_forward(self):
         print("MoveCommand.FORWARD")
         if self.rotate == MoveDirectionStateVal.STAY and self.linear == MoveDirectionStateVal.FORWARD:
-            if len(self.motor_forward_timeouts) == 0:
-                self.motor_forward_timeouts.append(1)
+            if len(self.motor_timeouts[MotorCommand.FORWARD]) == 0:
+                self.motor_timeouts[MotorCommand.FORWARD].append(1)
             return
+
         if self.linear == MoveDirectionStateVal.BACKWARD:
             self.linear = MoveDirectionStateVal.STAY
+
         if self.linear == MoveDirectionStateVal.STAY:
             self.linear = MoveDirectionStateVal.FORWARD
         self.rotate = MoveDirectionStateVal.STAY
 
-        if not self.motor_is_busy:
-            asyncio.ensure_future(self._on_state_change())
-        else:
-            self.motor_is_queued = True
+        asyncio.ensure_future(self._handle_state_change())
 
     async def _on_backward(self):
         print("MoveCommand.BACKWARD")
         if self.rotate == MoveDirectionStateVal.STAY and self.linear == MoveDirectionStateVal.BACKWARD:
-            if len(self.motor_backward_timeouts) == 0:
-                self.motor_backward_timeouts.append(1)
+            if len(self.motor_timeouts[MotorCommand.BACKWARD]) == 0:
+                self.motor_timeouts[MotorCommand.BACKWARD].append(1)
             return
+
         if self.linear == MoveDirectionStateVal.FORWARD:
             self.linear = MoveDirectionStateVal.STAY
+
         if self.linear == MoveDirectionStateVal.STAY:
             self.linear = MoveDirectionStateVal.BACKWARD
         self.rotate = MoveDirectionStateVal.STAY
 
-        if not self.motor_is_busy:
-            asyncio.ensure_future(self._on_state_change())
-        else:
-            self.motor_is_queued = True
+        asyncio.ensure_future(self._handle_state_change())
+
 
     async def _on_left(self):
         print("MoveCommand.LEFT")
+        if self.rotate == MoveDirectionStateVal.BACKWARD and self.linear == MoveDirectionStateVal.STAY:
+            if len(self.motor_timeouts[MotorCommand.SPINLEFT]) == 0:
+                self.motor_timeouts[MotorCommand.SPINLEFT].append(1)
+            return
+
+        if self.rotate == MoveDirectionStateVal.BACKWARD and self.linear == MoveDirectionStateVal.FORWARD:
+            if len(self.motor_timeouts[MotorCommand.LEFT]) == 0:
+                self.motor_timeouts[MotorCommand.LEFT].append(1)
+            return
+
         if self.rotate == MoveDirectionStateVal.STAY:
             self.rotate = MoveDirectionStateVal.BACKWARD
 
         if self.rotate == MoveDirectionStateVal.FORWARD:
             self.rotate = MoveDirectionStateVal.STAY
 
+        asyncio.ensure_future(self._handle_state_change())
+
     async def _on_right(self):
         print("MoveCommand.RIGHT")
+        if self.rotate == MoveDirectionStateVal.FORWARD and self.linear == MoveDirectionStateVal.STAY:
+            if len(self.motor_timeouts[MotorCommand.SPINRIGHT]) == 0:
+                self.motor_timeouts[MotorCommand.SPINRIGHT].append(1)
+            return
+
+        if self.rotate == MoveDirectionStateVal.FORWARD and self.linear == MoveDirectionStateVal.FORWARD:
+            if len(self.motor_timeouts[MotorCommand.RIGHT]) == 0:
+                self.motor_timeouts[MotorCommand.RIGHT].append(1)
+            return
+
         if self.rotate == MoveDirectionStateVal.STAY:
             self.rotate = MoveDirectionStateVal.FORWARD
 
         if self.rotate == MoveDirectionStateVal.BACKWARD:
             self.rotate = MoveDirectionStateVal.STAY
+
+        asyncio.ensure_future(self._handle_state_change())

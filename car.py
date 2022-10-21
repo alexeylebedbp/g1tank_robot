@@ -1,7 +1,7 @@
 from move_state import MoveState
 from lights_state import LightsState
 from transport_state import Transport, TransportEventSubscriber
-from web_rtc_state import WebRTCState
+from web_rtc_state import WebrtcState
 from credentials import credentials
 import asyncio
 
@@ -28,6 +28,21 @@ class Car(TransportEventSubscriber):
     def onMove(self, direction: str):
         asyncio.ensure_future(self.moveState.move(direction))
 
+    async def on_offer_request(self):
+        self.webrtcState = WebrtcState(self.transport)
+        webrtc_offer = await self.webrtcState.create_offer()
+        self.transport.send({
+            "action": "webrtc_offer",
+            "car_id": credentials["car_id"],
+            "sdp": webrtc_offer["sdp"],
+            "type": webrtc_offer["type"],
+        })
+
+    async def on_answer(self, sdp):
+        await self.webrtcState.on_answer(sdp)
+
+    async def on_remote_ice(self):
+        pass
     
 
 
