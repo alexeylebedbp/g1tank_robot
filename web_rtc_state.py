@@ -13,7 +13,7 @@ class WebrtcState:
         self.peer_connection = None
 
     def create_local_tracks(self):
-        options = {"framerate": "24", "video_size": "320x240", "hflip": "hflip", "vflip": "vflip"}
+        options = {"framerate": "24", "video_size": "320x240"}
         if self.relay is None:
             if platform.system() == "Darwin":
                 self.cam = MediaPlayer("default", format="avfoundation", options=options)
