@@ -41,6 +41,15 @@ class TransportEventSubscriber:
     def onMove(self):
         pass
 
+    async def on_offer_request(self):
+        pass
+
+    async def on_answer(self, sdp):
+        pass
+
+    async def on_remote_ice(self):
+        pass
+
 class Transport:
     def __init__(self, car: TransportEventSubscriber, host, car_id, initialTimeout: int, maxTimeout: int):
         self.ws = None
@@ -69,6 +78,9 @@ class Transport:
             print(e.__class__.__name__, str(e))
             await asyncio.sleep(self.timeout.current)
             await self.reconnect()
+
+    def send(self, message):
+        asyncio.ensure_future(self.ws.send_str(json.dumps(message)))
 
     def close(self):
         self.timeout.current = None
@@ -100,18 +112,22 @@ class Transport:
                         self.car.onRed()
                     else:
                         parsed = self.parse_message(msg.data)
-                        if parsed["action"] == "move":
+                        if parsed.get("action") == "move":
                             self.car.onMove(parsed.get("direction"))
+                        elif parsed.get("action") == "webrtc_answer":
+                            await self.car.on_answer(parsed.get("sdp"))
+                        elif parsed.get("action") == "answer_ice":
+                            # await self.car.on_remote_ice()
+                            pass
+                        elif parsed.get("action") == "offer_request":
+                            await self.car.on_offer_request()
                     
             elif msg.type == aiohttp.WSMsgType.ERROR or msg.tp == aiohttp.WSMsgType.CLOSED:
                 self.state = TransportState.ERROR
                 break
 
     async def _on_connect(self):
-        message = {
-            "action": "auth_session", 
-            "car_id": self.car_id
-        }
-        asyncio.ensure_future(self.ws.send_str(json.dumps(message)))
+        auth_message = {"action": "auth_session", "car_id": self.car_id}
+        asyncio.ensure_future(self.ws.send_str(json.dumps(auth_message)))
         self.timeout.reset()
         await self._on_message()
