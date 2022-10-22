@@ -8,7 +8,6 @@ class WebrtcState:
     def __init__(self, transport):
         self.relay = None
         self.cam = None
-        self.microphone = None
         self.transport = transport
         self.peer_connection = None
 
@@ -17,7 +16,6 @@ class WebrtcState:
         if self.relay is None:
             if platform.system() == "Darwin":
                 self.cam = MediaPlayer("default", format="avfoundation", options=options)
-                # self.microphone = MediaPlayer("default", format="pulse")
             elif platform.system() == "Windows":
                 self.cam = MediaPlayer(
                     "video=Integrated Camera", format="dshow", options=options
@@ -29,7 +27,6 @@ class WebrtcState:
         return None, self.relay.subscribe(self.cam.video)
 
     async def create_offer(self):
-        print("create_offer 30")
         self.peer_connection = RTCPeerConnection()
 
         @self.peer_connection.on("connectionstatechange")

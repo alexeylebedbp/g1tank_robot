@@ -97,7 +97,6 @@ class MoveState:
         self.pwm_ENB = GPIO.PWM(self.ENB, 2000)
 
     async def motor_move(self, motor_command: MotorCommand):
-        print("Motor move!")
         self.motor_is_busy = True
         self.motor_timeouts[motor_command].append(1)
         self.motor_init()
@@ -165,7 +164,6 @@ class MoveState:
             self.motor_is_queued = True
 
     async def _on_forward(self):
-        print("MoveCommand.FORWARD")
         if self.rotate == MoveDirectionStateVal.STAY and self.linear == MoveDirectionStateVal.FORWARD:
             if len(self.motor_timeouts[MotorCommand.FORWARD]) == 0:
                 self.motor_timeouts[MotorCommand.FORWARD].append(1)
@@ -181,7 +179,6 @@ class MoveState:
         asyncio.ensure_future(self._handle_state_change())
 
     async def _on_backward(self):
-        print("MoveCommand.BACKWARD")
         if self.rotate == MoveDirectionStateVal.STAY and self.linear == MoveDirectionStateVal.BACKWARD:
             if len(self.motor_timeouts[MotorCommand.BACKWARD]) == 0:
                 self.motor_timeouts[MotorCommand.BACKWARD].append(1)
@@ -198,7 +195,6 @@ class MoveState:
 
 
     async def _on_left(self):
-        print("MoveCommand.LEFT")
         if self.rotate == MoveDirectionStateVal.BACKWARD and self.linear == MoveDirectionStateVal.STAY:
             if len(self.motor_timeouts[MotorCommand.SPINLEFT]) == 0:
                 self.motor_timeouts[MotorCommand.SPINLEFT].append(1)
@@ -218,7 +214,6 @@ class MoveState:
         asyncio.ensure_future(self._handle_state_change())
 
     async def _on_right(self):
-        print("MoveCommand.RIGHT")
         if self.rotate == MoveDirectionStateVal.FORWARD and self.linear == MoveDirectionStateVal.STAY:
             if len(self.motor_timeouts[MotorCommand.SPINRIGHT]) == 0:
                 self.motor_timeouts[MotorCommand.SPINRIGHT].append(1)
