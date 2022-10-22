@@ -22,7 +22,7 @@ class ReconnectTimeout:
 
     def next(self):
         self.reconnectCount += 1
-        print("Reconnect attempt. Count: ", self.reconnectCount, "Timeout:", self.current)
+        print("Websocket Reconnect attempt. Count: ", self.reconnectCount, "Timeout:", self.current)
         if self.current < self.max:
             self.current *= 2
 
@@ -35,10 +35,10 @@ class TransportEventSubscriber:
     def __init__(self):
         pass
 
-    def onRed(self):
+    def on_poor_network_signal(self):
         pass
 
-    def onMove(self):
+    def on_move(self):
         pass
 
     async def on_offer_request(self):
@@ -69,7 +69,7 @@ class Transport:
         try:
             self.state: TransportState = TransportState.CONNECTING
             self.connector = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout.current))
-            print("Connecting: ", self.host)
+            print("Websocket Connecting: ", self.host)
             self.ws = await self.connector.ws_connect(self.host)
             self.state = TransportState.CONNECTED
             await self._on_connect()
@@ -91,7 +91,7 @@ class Transport:
         parsed = json.loads(message)
         action = parsed.get("action")
         if not action:
-            print("Parse err: invalid message format")
+            print("Websocket Parse err: invalid message format")
             return None
         else:
             return parsed
@@ -102,18 +102,18 @@ class Transport:
             print(msg)
             if msg.type == aiohttp.WSMsgType.TEXT:
                 if msg.data == 'close cmd':
-                    print("WS is closed")
+                    print("Websocket closed")
                     await self.ws.close()
                     break
                 else:
                     if msg.data == "__ping__":
                         asyncio.ensure_future(self.ws.send_str("__pong__"))
-                    elif msg.data == "red":
+                    elif msg.data == "poor_network_detected":
                         self.car.onRed()
                     else:
                         parsed = self.parse_message(msg.data)
                         if parsed.get("action") == "move":
-                            self.car.onMove(parsed.get("direction"))
+                            self.car.on_move(parsed.get("direction"))
                         elif parsed.get("action") == "webrtc_answer":
                             await self.car.on_answer(parsed.get("sdp"))
                         elif parsed.get("action") == "answer_ice":
