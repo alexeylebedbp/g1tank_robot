@@ -106,19 +106,17 @@ class Transport:
                     await self.ws.close()
                     break
                 else:
+                    print(msg.data)
                     if msg.data == "__ping__":
                         asyncio.ensure_future(self.ws.send_str("__pong__"))
                     elif msg.data == "poor_network_detected":
-                        self.car.onRed()
+                        self.car.on_poor_network_signal()
                     else:
                         parsed = self.parse_message(msg.data)
                         if parsed.get("action") == "move":
                             self.car.on_move(parsed.get("direction"))
                         elif parsed.get("action") == "webrtc_answer":
                             await self.car.on_answer(parsed.get("sdp"))
-                        elif parsed.get("action") == "answer_ice":
-                            # await self.car.on_remote_ice()
-                            pass
                         elif parsed.get("action") == "offer_request":
                             await self.car.on_offer_request()
                     
