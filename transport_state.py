@@ -42,6 +42,9 @@ class TransportEventSubscriber:
     def on_move(self, direction: str):
         pass
 
+    async def on_ws_close(self):
+        pass
+
     async def on_offer_request(self):
         pass
 
@@ -50,6 +53,7 @@ class TransportEventSubscriber:
 
     async def on_remote_ice(self):
         pass
+
 
 class Transport:
     def __init__(self, car: TransportEventSubscriber, host, car_id, initialTimeout: int, maxTimeout: int):
@@ -77,19 +81,20 @@ class Transport:
             await self.reconnect()
         except Exception as e:
             print(e.__class__.__name__, str(e))
+            await self.car.on_ws_close()
             await asyncio.sleep(self.timeout.current)
             await self.reconnect()
 
     def send(self, message):
         asyncio.ensure_future(self.ws.send_str(json.dumps(message)))
 
-    def close(self):
+    async def close(self):
         self.timeout.current = None
-        self.ws.close()
+        await self.ws.close()
         self.state = TransportState.DISCONNECTED
 
     @staticmethod
-    def parse_message(self, message: str):
+    def parse_message(message: str):
         parsed = json.loads(message)
         action = parsed.get(ACTION)
         if not action:
@@ -104,7 +109,7 @@ class Transport:
             if msg.type == aiohttp.WSMsgType.TEXT:
                 if msg.data == 'close cmd':
                     print("Websocket closed")
-                    await self.ws.close()
+                    await self.close()
                     break
                 else:
                     print(msg.data)
@@ -123,6 +128,7 @@ class Transport:
                     
             elif msg.type == aiohttp.WSMsgType.ERROR or msg.tp == aiohttp.WSMsgType.CLOSED:
                 self.state = TransportState.ERROR
+                await self.car.on_ws_close()
                 break
 
     async def _on_connect(self):

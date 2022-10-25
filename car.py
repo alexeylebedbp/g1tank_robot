@@ -38,7 +38,7 @@ class Car(TransportEventSubscriber):
             ACTION: WEBRTC_OFFER,
             CAR_ID: CREDENTIALS[CAR_ID],
             SDP: webrtc_offer[SDP],
-            "type": webrtc_offer["type"],
+            WEBRTC_REQUEST_TYPE: webrtc_offer[WEBRTC_REQUEST_TYPE],
         })
 
     async def on_answer(self, sdp):
@@ -46,6 +46,11 @@ class Car(TransportEventSubscriber):
 
     async def on_remote_ice(self):
         pass
+
+    async def on_ws_close(self):
+        if self.webrtcState is not None:
+            await self.webrtcState.close()
+        self.webrtcState = None
 
 car = Car()
 car.run()

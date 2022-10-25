@@ -20,6 +20,8 @@ FORWARD = "forward"
 BACKWARD = "backward"
 LEFT = "left"
 RIGHT = "right"
+ICE_CANDIDATE_TYPE = "type"
+WEBRTC_REQUEST_TYPE = "type"
 
 CREDENTIALS = {
     HOST: 'ws://10.0.0.250:8080',

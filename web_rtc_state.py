@@ -46,9 +46,19 @@ class WebrtcState:
         return {
             ACTION: WEBRTC_OFFER,
             SDP: self.peer_connection.localDescription.sdp,
-            "type": self.peer_connection.localDescription.type
+            ICE_CANDIDATE_TYPE: self.peer_connection.localDescription.type
         }
 
     async def on_answer(self, remoteSDP):
         answer = RTCSessionDescription(sdp=remoteSDP, type="answer")
         await self.peer_connection.setRemoteDescription(answer)
+
+    async def close(self):
+        await self.peer_connection.close()
+        self.relay = None
+        if self.cam:
+            if self.cam.audio:
+                self.cam.audio.stop()
+            if self.cam.video:
+                self.cam.video.stop()
+        self.cam = None
