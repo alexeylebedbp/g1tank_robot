@@ -1,25 +1,24 @@
-from numpy import nonzero
 from move_state import MoveState
 from lights_state import LightsState
 from transport_state import Transport, TransportEventSubscriber
 from web_rtc_state import WebrtcState
-from credentials import credentials
+from credentials import *
 import asyncio
 from typing import Union
 
 class Car(TransportEventSubscriber):
 
-
     def __init__(self):
+        super().__init__()
         self.lightsState = LightsState()
         self.transport = Transport(
             car=self,
-            host=credentials["host"],
-            car_id=credentials["car_id"],
-            initialTimeout=int(credentials["initial_reconnect_timeout"]),
-            maxTimeout=int(credentials["max_reconnect_timeout"])
+            host=CREDENTIALS[HOST],
+            car_id=CREDENTIALS[CAR_ID],
+            initialTimeout=int(CREDENTIALS[INITIAL_RECONNECT_TIMEOUT]),
+            maxTimeout=int(CREDENTIALS[MAX_RECONNECT_TIMEOUT])
         )
-        self.webrtcState: Union(WebrtcState, None) = None
+        self.webrtcState: Union[WebrtcState, None] = None
         self.moveState = MoveState()
         self.loop = asyncio.get_event_loop()
 
@@ -36,10 +35,10 @@ class Car(TransportEventSubscriber):
         self.webrtcState = WebrtcState(self.transport)
         webrtc_offer = await self.webrtcState.create_offer()
         self.transport.send({
-            "action": "webrtc_offer",
-            "car_id": credentials["car_id"],
-            "sdp": webrtc_offer["sdp"],
-            "type": webrtc_offer["type"],
+            ACTION: WEBRTC_OFFER,
+            CAR_ID: CREDENTIALS[CAR_ID],
+            SDP: webrtc_offer[SDP],
+            WEBRTC_REQUEST_TYPE: webrtc_offer[WEBRTC_REQUEST_TYPE],
         })
 
     async def on_answer(self, sdp):
@@ -47,8 +46,11 @@ class Car(TransportEventSubscriber):
 
     async def on_remote_ice(self):
         pass
-    
 
+    async def on_ws_close(self):
+        if self.webrtcState is not None:
+            await self.webrtcState.close()
+        self.webrtcState = None
 
 car = Car()
 car.run()
