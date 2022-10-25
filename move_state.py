@@ -1,10 +1,9 @@
-from ast import parse
-import enum
 from enum import Enum, unique
 from weakref import WeakKeyDictionary
 import RPi.GPIO as GPIO
 import asyncio
-from credentials import credentials
+from credentials import *
+
 
 @unique
 class MoveDirectionStateVal(Enum):
@@ -48,7 +47,7 @@ class MoveState:
     rotate = MoveDirectionState()
 
     def __init__(self):
-        self.motor_frequency = 1/int(credentials["motor_frequency"])
+        self.motor_frequency = 1/int(CREDENTIALS[MOTOR_FREQUENCY])
         self.motor_is_queued = False
         self.motor_is_busy = False
         self.IN1 = 20
@@ -119,13 +118,13 @@ class MoveState:
         self.state_to_default()       
 
     def parse_command(self, cmd: str):
-        if cmd == "forward":
+        if cmd == FORWARD:
             return MoveCommand.FORWARD
-        elif cmd == "backward":
+        elif cmd == BACKWARD:
             return MoveCommand.BACKWARD
-        elif cmd == "left":
+        elif cmd == LEFT:
             return MoveCommand.LEFT
-        elif cmd == "right":
+        elif cmd == RIGHT:
             return MoveCommand.RIGHT
         else:
             return None
@@ -192,7 +191,6 @@ class MoveState:
         self.rotate = MoveDirectionStateVal.STAY
 
         asyncio.ensure_future(self._handle_state_change())
-
 
     async def _on_left(self):
         if self.rotate == MoveDirectionStateVal.BACKWARD and self.linear == MoveDirectionStateVal.STAY:

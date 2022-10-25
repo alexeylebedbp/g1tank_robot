@@ -29,6 +29,6 @@ class LightsState:
             GPIO.output(self.LED_G, GPIO.LOW)
             GPIO.output(self.LED_B, GPIO.LOW)
         except Exception as e:
-            print("Lights Component: " ,str(e))
+            print("Lights Component: ", str(e))
 
         self._cleanup()

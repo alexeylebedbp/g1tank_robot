@@ -2,7 +2,7 @@ import platform
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaPlayer, MediaRelay
 from aiortc.rtcrtpsender import RTCRtpSender
-from credentials import credentials
+from credentials import *
 
 class WebrtcState:
     def __init__(self, transport):
@@ -17,9 +17,7 @@ class WebrtcState:
             if platform.system() == "Darwin":
                 self.cam = MediaPlayer("default", format="avfoundation", options=options)
             elif platform.system() == "Windows":
-                self.cam = MediaPlayer(
-                    "video=Integrated Camera", format="dshow", options=options
-                )
+                self.cam = MediaPlayer("video=Integrated Camera", format="dshow", options=options)
             else:
                 self.cam = MediaPlayer("/dev/video0", format="v4l2", options=options)
             self.relay = MediaRelay()
@@ -36,6 +34,7 @@ class WebrtcState:
                 await self.peer_connection.close()
 
         audio, video = self.create_local_tracks()
+
         if audio:
             self.peer_connection.addTrack(audio)
         if video:
@@ -45,8 +44,8 @@ class WebrtcState:
         await self.peer_connection.setLocalDescription(offer)
 
         return {
-            "action": "webrtc_offer",
-            "sdp": self.peer_connection.localDescription.sdp,
+            ACTION: WEBRTC_OFFER,
+            SDP: self.peer_connection.localDescription.sdp,
             "type": self.peer_connection.localDescription.type
         }
 

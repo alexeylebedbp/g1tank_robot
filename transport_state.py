@@ -3,6 +3,7 @@ import asyncio
 import enum
 import json
 from enum import Enum, unique
+from credentials import *
 
 
 @unique
@@ -38,13 +39,13 @@ class TransportEventSubscriber:
     def on_poor_network_signal(self):
         pass
 
-    def on_move(self):
+    def on_move(self, direction: str):
         pass
 
     async def on_offer_request(self):
         pass
 
-    async def on_answer(self, sdp):
+    async def on_answer(self, sdp: str):
         pass
 
     async def on_remote_ice(self):
@@ -87,15 +88,15 @@ class Transport:
         self.ws.close()
         self.state = TransportState.DISCONNECTED
 
+    @staticmethod
     def parse_message(self, message: str):
         parsed = json.loads(message)
-        action = parsed.get("action")
+        action = parsed.get(ACTION)
         if not action:
             print("Websocket Parse err: invalid message format")
             return None
         else:
             return parsed
-        
 
     async def _on_message(self):
         async for msg in self.ws:
@@ -107,17 +108,17 @@ class Transport:
                     break
                 else:
                     print(msg.data)
-                    if msg.data == "__ping__":
-                        asyncio.ensure_future(self.ws.send_str("__pong__"))
-                    elif msg.data == "poor_network_detected":
+                    if msg.data == PING:
+                        asyncio.ensure_future(self.ws.send_str(PONG))
+                    elif msg.data == POOR_NETWORK_DETECTED:
                         self.car.on_poor_network_signal()
                     else:
                         parsed = self.parse_message(msg.data)
-                        if parsed.get("action") == "move":
-                            self.car.on_move(parsed.get("direction"))
-                        elif parsed.get("action") == "webrtc_answer":
-                            await self.car.on_answer(parsed.get("sdp"))
-                        elif parsed.get("action") == "offer_request":
+                        if parsed.get(ACTION) == MOVE:
+                            self.car.on_move(parsed.get(DIRECTION))
+                        elif parsed.get(ACTION) == WEBRTC_ANSWER:
+                            await self.car.on_answer(parsed.get(SDP))
+                        elif parsed.get(ACTION) == OFFER_REQUEST:
                             await self.car.on_offer_request()
                     
             elif msg.type == aiohttp.WSMsgType.ERROR or msg.tp == aiohttp.WSMsgType.CLOSED:
@@ -125,7 +126,7 @@ class Transport:
                 break
 
     async def _on_connect(self):
-        auth_message = {"action": "auth_session", "car_id": self.car_id}
+        auth_message = {ACTION: AUTH_SESSION, CAR_ID: self.car_id}
         asyncio.ensure_future(self.ws.send_str(json.dumps(auth_message)))
         self.timeout.reset()
         await self._on_message()
